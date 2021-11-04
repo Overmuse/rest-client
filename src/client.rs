@@ -120,22 +120,27 @@ impl<'a> Client<'a> {
     }
 
     /// Send multiple `Request`s, returing a stream of results
-    pub fn send_all<I, R>(&'a self, requests: I) -> impl Stream<Item = Result<R::Response>> + 'a
+    pub fn send_all<I, R>(
+        &'a self,
+        requests: I,
+    ) -> impl Stream<Item = Result<R::Response>> + 'a + Unpin
     where
         I: Iterator<Item = &'a R> + 'a,
         R: Request + 'a,
     {
-        stream::iter(requests)
-            .map(move |r| self.send(r).map_into())
-            .filter_map(|x| x)
+        Box::pin(
+            stream::iter(requests)
+                .map(move |r| self.send(r).map_into())
+                .filter_map(|x| x),
+        )
     }
 
     /// Send a paginated request, returning a stream of results
     pub fn send_paginated<R: PaginatedRequest + 'a>(
         &'a self,
         request: &'a R,
-    ) -> impl Stream<Item = Result<R::Response>> + 'a {
-        stream::try_unfold(
+    ) -> impl Stream<Item = Result<R::Response>> + 'a + Unpin {
+        Box::pin(stream::try_unfold(
             (request.paginator(), PaginationState::Start(None)),
             move |(paginator, state)| async move {
                 let mut base_request = self.format_request(request)?;
@@ -159,6 +164,6 @@ impl<'a> Client<'a> {
                 let state = paginator.next(&state, &response);
                 Ok(Some((response, (paginator, state))))
             },
-        )
+        ))
     }
 }
