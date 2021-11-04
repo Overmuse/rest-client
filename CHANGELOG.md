@@ -1,5 +1,12 @@
 # Changelog
 
+### [0.1.1](https://www.github.com/Overmuse/rest-client/compare/v0.1.0...v0.1.1) (2021-11-04)
+
+
+### Bug Fixes
+
+* Make returned streams Unpin ([f6bd5b8](https://www.github.com/Overmuse/rest-client/commit/f6bd5b8ac24e17d1f75d64107e1321a8a745e135))
+
 ## 0.1.0 (2021-11-04)
 
 
