@@ -18,7 +18,7 @@ impl Request for EmptyHello {
 async fn basic_auth() {
     let server = MockServer::start().await;
     let uri = server.uri();
-    let client = Client::new(&uri).basic_auth("user".into(), "pass".into());
+    let client = Client::new(&uri).basic_auth("user", "pass");
 
     Mock::given(method("GET"))
         .and(path("/hello"))

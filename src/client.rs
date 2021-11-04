@@ -7,10 +7,10 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 #[derive(Clone)]
-enum Authentication {
-    Bearer(String),
-    Basic(String, String),
-    Query(Vec<(String, String)>),
+enum Authentication<'a> {
+    Bearer(Cow<'a, str>),
+    Basic(Cow<'a, str>, Cow<'a, str>),
+    Query(Vec<(Cow<'a, str>, Cow<'a, str>)>),
 }
 
 /// The main client used for making requests.
@@ -21,7 +21,7 @@ enum Authentication {
 pub struct Client<'a> {
     inner: Arc<ReqwestClient>,
     base_url: Cow<'a, str>,
-    auth: Option<Authentication>,
+    auth: Option<Authentication<'a>>,
 }
 
 impl<'a> Client<'a> {
@@ -37,19 +37,23 @@ impl<'a> Client<'a> {
     }
 
     /// Enable bearer authentication for the client
-    pub fn bearer_auth(mut self, token: String) -> Self {
-        self.auth = Some(Authentication::Bearer(token));
+    pub fn bearer_auth<S: Into<Cow<'a, str>>>(mut self, token: S) -> Self {
+        self.auth = Some(Authentication::Bearer(token.into()));
         self
     }
 
     /// Enable basic authentication for the client
-    pub fn basic_auth(mut self, user: String, pass: String) -> Self {
-        self.auth = Some(Authentication::Basic(user, pass));
+    pub fn basic_auth<S: Into<Cow<'a, str>>>(mut self, user: S, pass: S) -> Self {
+        self.auth = Some(Authentication::Basic(user.into(), pass.into()));
         self
     }
 
     /// Enable query authentication for the client
-    pub fn query_auth(mut self, pairs: Vec<(String, String)>) -> Self {
+    pub fn query_auth<S: Into<Cow<'a, str>>>(mut self, pairs: Vec<(S, S)>) -> Self {
+        let pairs = pairs
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect();
         self.auth = Some(Authentication::Query(pairs));
         self
     }
@@ -94,17 +98,9 @@ impl<'a> Client<'a> {
     }
 
     /// Send a single `Request`
-    pub fn send<R: Request>(&'a self, request: &R) -> impl Future<Output = Result<R::Response>> + 'a
-    where
-        R::Response: 'a,
-    {
-        let req = self.format_request(request);
-        if let Err(e) = req {
-            return future::Either::Left(future::ready(Err(e)));
-        };
-        let req = req.unwrap();
-
-        future::Either::Right(self.send_raw(req))
+    pub async fn send<R: Request>(&self, request: &R) -> Result<R::Response> {
+        let req = self.format_request(request)?;
+        self.send_raw(req).await
     }
 
     /// Send multiple `Request`s, returing a stream of results
