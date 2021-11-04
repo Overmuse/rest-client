@@ -11,3 +11,4 @@ pub use client::Client;
 pub use error::Error;
 pub use pagination::*;
 pub use request::*;
+pub use reqwest::Method;
