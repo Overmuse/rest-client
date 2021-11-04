@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub enum Authentication {
+enum Authentication {
     Bearer(String),
     Basic(String, String),
     Query(Vec<(String, String)>),
@@ -36,16 +36,19 @@ impl<'a> Client<'a> {
         }
     }
 
+    /// Enable bearer authentication for the client
     pub fn bearer_auth(mut self, token: String) -> Self {
         self.auth = Some(Authentication::Bearer(token));
         self
     }
 
+    /// Enable basic authentication for the client
     pub fn basic_auth(mut self, user: String, pass: String) -> Self {
         self.auth = Some(Authentication::Basic(user, pass));
         self
     }
 
+    /// Enable query authentication for the client
     pub fn query_auth(mut self, pairs: Vec<(String, String)>) -> Self {
         self.auth = Some(Authentication::Query(pairs));
         self
@@ -90,7 +93,7 @@ impl<'a> Client<'a> {
             })
     }
 
-    /// Send a `Request`
+    /// Send a single `Request`
     pub fn send<R: Request>(&'a self, request: &R) -> impl Future<Output = Result<R::Response>> + 'a
     where
         R::Response: 'a,
@@ -104,6 +107,7 @@ impl<'a> Client<'a> {
         future::Either::Right(self.send_raw(req))
     }
 
+    /// Send multiple `Request`s, returing a stream of results
     pub fn send_all<I, R>(&'a self, requests: I) -> impl Stream<Item = Result<R::Response>> + 'a
     where
         I: Iterator<Item = &'a R> + 'a,
@@ -114,6 +118,7 @@ impl<'a> Client<'a> {
             .filter_map(|x| x)
     }
 
+    /// Send a paginated request, returning a stream of results
     pub fn send_paginated<R: PaginatedRequest + 'a>(
         &'a self,
         request: &'a R,
