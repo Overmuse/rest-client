@@ -1,0 +1,12 @@
+[package]
+name = "pagination"
+version = "0.1.0"
+edition = "2018"
+publish = false
+
+[dependencies]
+futures = "0.3.17"
+rest-client = { path = "../.." }
+stream-flatten-iters = "0.2.0"
+serde = { version = "1.0.130", features = ["derive"] }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
