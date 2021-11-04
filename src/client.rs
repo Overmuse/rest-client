@@ -3,16 +3,14 @@ use crate::pagination::{PaginatedRequest, PaginationState, PaginationType};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
 use reqwest::Client as ReqwestClient;
-use serde::Serialize;
 use std::borrow::Cow;
-use std::fmt::Display;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub enum Authentication<T, U> {
-    Bearer(T),
-    Basic(T, T),
-    Url { key: U, value: U },
+pub enum Authentication {
+    Bearer(String),
+    Basic(String, String),
+    Query(Vec<(String, String)>),
 }
 
 /// The main client used for making requests.
@@ -20,13 +18,13 @@ pub enum Authentication<T, U> {
 /// `Client` stores an async Reqwest client as well as the associated
 /// base url for the REST server.
 #[derive(Clone)]
-pub struct Client<'a, T, U> {
+pub struct Client<'a> {
     inner: Arc<ReqwestClient>,
     base_url: Cow<'a, str>,
-    auth: Option<Authentication<T, U>>,
+    auth: Option<Authentication>,
 }
 
-impl<'a, T: Display, U: Serialize> Client<'a, T, U> {
+impl<'a> Client<'a> {
     /// Create a new `Client`.
     pub fn new(base_url: &'a str) -> Self {
         let inner = Arc::new(ReqwestClient::new());
@@ -38,18 +36,18 @@ impl<'a, T: Display, U: Serialize> Client<'a, T, U> {
         }
     }
 
-    pub fn bearer_auth(mut self, token: T) -> Self {
+    pub fn bearer_auth(mut self, token: String) -> Self {
         self.auth = Some(Authentication::Bearer(token));
         self
     }
 
-    pub fn basic_auth(mut self, user: T, pass: T) -> Self {
+    pub fn basic_auth(mut self, user: String, pass: String) -> Self {
         self.auth = Some(Authentication::Basic(user, pass));
         self
     }
 
-    pub fn query_auth(mut self, key: U, value: U) -> Self {
-        self.auth = Some(Authentication::Url { key, value });
+    pub fn query_auth(mut self, pairs: Vec<(String, String)>) -> Self {
+        self.auth = Some(Authentication::Query(pairs));
         self
     }
 
@@ -68,7 +66,7 @@ impl<'a, T: Display, U: Serialize> Client<'a, T, U> {
             None => req,
             Some(Authentication::Bearer(token)) => req.bearer_auth(token),
             Some(Authentication::Basic(user, pass)) => req.basic_auth(user, Some(pass)),
-            Some(Authentication::Url { key, value }) => req.query(&[(key, value)]),
+            Some(Authentication::Query(pairs)) => req.query(&pairs),
         };
         req.build().map_err(From::from)
     }

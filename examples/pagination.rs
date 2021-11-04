@@ -70,7 +70,7 @@ impl PaginatedRequest for GetPassengers {
 
 #[tokio::main]
 pub async fn main() {
-    let client: Client<'_, String, String> = Client::new("https://api.instantwebtools.net");
+    let client = Client::new("https://api.instantwebtools.net");
     let req = GetPassengers { size: 100 };
 
     // Can send request individually
