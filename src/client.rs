@@ -2,6 +2,7 @@ use crate::error::{Error, Result};
 use crate::pagination::{PaginatedRequest, PaginationState, PaginationType};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
+use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client as ReqwestClient;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -11,6 +12,7 @@ enum Authentication<'a> {
     Bearer(Cow<'a, str>),
     Basic(Cow<'a, str>, Cow<'a, str>),
     Query(Vec<(Cow<'a, str>, Cow<'a, str>)>),
+    Header(HeaderMap<HeaderValue>),
 }
 
 /// The main client used for making requests.
@@ -58,6 +60,19 @@ impl<'a> Client<'a> {
         self
     }
 
+    /// Enable custom header authentication for the client
+    pub fn header_auth(mut self, pairs: Vec<(&'static str, &'static str)>) -> Self {
+        let mut map = HeaderMap::new();
+        for (k, v) in pairs {
+            map.insert(
+                k,
+                HeaderValue::from_str(v).expect("Unable to parse header value"),
+            );
+        }
+        self.auth = Some(Authentication::Header(map));
+        self
+    }
+
     fn format_request<R: Request>(&'a self, request: &R) -> Result<reqwest::Request> {
         let endpoint = request.endpoint();
         let endpoint = endpoint.trim_matches('/');
@@ -74,6 +89,7 @@ impl<'a> Client<'a> {
             Some(Authentication::Bearer(token)) => req.bearer_auth(token),
             Some(Authentication::Basic(user, pass)) => req.basic_auth(user, Some(pass)),
             Some(Authentication::Query(pairs)) => req.query(&pairs),
+            Some(Authentication::Header(pairs)) => req.headers(pairs.clone()),
         };
         req.build().map_err(From::from)
     }
