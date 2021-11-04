@@ -10,14 +10,13 @@ futures = "0.3"
 reqwest = { version = "0.11", features = ["json"] }
 serde = "1.0"
 serde_json = "1.0"
-stream-flatten-iters = { version = "0.2.0", optional = true }
 thiserror = "1.0"
-tokio = { version = "1.13.0", features = ["macros", "rt-multi-thread"], optional = true }
-
-[features]
-default = []
-examples = ["serde/derive", "stream-flatten-iters", "tokio"]
 
 [[example]]
 name = "pagination"
-required-features = ["examples"]
+
+[dev-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+stream-flatten-iters = "0.2.0"
+tokio = { version = "1.13.0", features = ["macros", "rt-multi-thread"] }
+wiremock = "0.5.8"
