@@ -18,7 +18,7 @@ impl Request for EmptyHello {
 async fn bearer_auth() {
     let server = MockServer::start().await;
     let uri = server.uri();
-    let client = Client::new(&uri).bearer_auth("PASSWORD".into());
+    let client = Client::new(&uri).bearer_auth("PASSWORD");
 
     Mock::given(method("GET"))
         .and(path("/hello"))

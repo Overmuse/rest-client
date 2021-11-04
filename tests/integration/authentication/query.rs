@@ -18,7 +18,7 @@ impl Request for EmptyHello {
 async fn query_auth() {
     let server = MockServer::start().await;
     let uri = server.uri();
-    let auth = vec![("key".into(), "k".into()), ("secret".into(), "s".into())];
+    let auth = vec![("key", "k"), ("secret", "s")];
     let client = Client::new(&uri).query_auth(auth);
 
     Mock::given(method("GET"))
