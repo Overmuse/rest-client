@@ -12,3 +12,4 @@ pub use error::Error;
 pub use request::*;
 pub use reqwest::header;
 pub use reqwest::Method;
+pub use reqwest::StatusCode;
