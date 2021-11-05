@@ -1,5 +1,12 @@
 # Changelog
 
+### [0.1.2](https://www.github.com/Overmuse/rest-client/compare/v0.1.1...v0.1.2) (2021-11-05)
+
+
+### Bug Fixes
+
+* Have client take ownership of values to remove lifetimes ([3e5d54b](https://www.github.com/Overmuse/rest-client/commit/3e5d54bff7ef5f39bf81d990acbe854c386bb1ea))
+
 ### [0.1.1](https://www.github.com/Overmuse/rest-client/compare/v0.1.0...v0.1.1) (2021-11-04)
 
 
