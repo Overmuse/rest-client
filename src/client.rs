@@ -2,16 +2,16 @@ use crate::error::{Error, Result};
 use crate::pagination::{PaginatedRequest, PaginationState, PaginationType};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
-use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Client as ReqwestClient;
-use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::sync::Arc;
 
 #[derive(Clone)]
-enum Authentication<'a> {
-    Bearer(Cow<'a, str>),
-    Basic(Cow<'a, str>, Cow<'a, str>),
-    Query(Vec<(Cow<'a, str>, Cow<'a, str>)>),
+enum Authentication {
+    Bearer(String),
+    Basic(String, String),
+    Query(Vec<(String, String)>),
     Header(HeaderMap<HeaderValue>),
 }
 
@@ -20,60 +20,62 @@ enum Authentication<'a> {
 /// `Client` stores an async Reqwest client as well as the associated
 /// base url for the REST server.
 #[derive(Clone)]
-pub struct Client<'a> {
+pub struct Client {
     inner: Arc<ReqwestClient>,
-    base_url: Cow<'a, str>,
-    auth: Option<Authentication<'a>>,
+    base_url: String,
+    auth: Option<Authentication>,
 }
 
-impl<'a> Client<'a> {
+impl Client {
     /// Create a new `Client`.
-    pub fn new(base_url: &'a str) -> Self {
+    pub fn new<S: ToString>(base_url: S) -> Self {
         let inner = Arc::new(ReqwestClient::new());
 
         Self {
             inner,
-            base_url: Cow::Borrowed(base_url),
+            base_url: base_url.to_string(),
             auth: None,
         }
     }
 
     /// Enable bearer authentication for the client
-    pub fn bearer_auth<S: Into<Cow<'a, str>>>(mut self, token: S) -> Self {
-        self.auth = Some(Authentication::Bearer(token.into()));
+    pub fn bearer_auth<S: ToString>(mut self, token: S) -> Self {
+        self.auth = Some(Authentication::Bearer(token.to_string()));
         self
     }
 
     /// Enable basic authentication for the client
-    pub fn basic_auth<S: Into<Cow<'a, str>>>(mut self, user: S, pass: S) -> Self {
-        self.auth = Some(Authentication::Basic(user.into(), pass.into()));
+    pub fn basic_auth<S: ToString>(mut self, user: S, pass: S) -> Self {
+        self.auth = Some(Authentication::Basic(user.to_string(), pass.to_string()));
         self
     }
 
     /// Enable query authentication for the client
-    pub fn query_auth<S: Into<Cow<'a, str>>>(mut self, pairs: Vec<(S, S)>) -> Self {
+    pub fn query_auth<S: ToString>(mut self, pairs: Vec<(S, S)>) -> Self {
         let pairs = pairs
             .into_iter()
-            .map(|(k, v)| (k.into(), v.into()))
+            .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
         self.auth = Some(Authentication::Query(pairs));
         self
     }
 
     /// Enable custom header authentication for the client
-    pub fn header_auth(mut self, pairs: Vec<(&'static str, &'static str)>) -> Self {
+    pub fn header_auth<S: ToString>(mut self, pairs: Vec<(S, S)>) -> Self {
         let mut map = HeaderMap::new();
         for (k, v) in pairs {
+            let k = k.to_string();
+            let v = v.to_string();
             map.insert(
-                k,
-                HeaderValue::from_str(v).expect("Unable to parse header value"),
+                HeaderName::try_from(&k).expect("Failed to create HeaderName"),
+                HeaderValue::from_str(&v).expect("Failed to create HeaderValue"),
             );
         }
         self.auth = Some(Authentication::Header(map));
         self
     }
 
-    fn format_request<R: Request>(&'a self, request: &R) -> Result<reqwest::Request> {
+    fn format_request<R: Request>(&self, request: &R) -> Result<reqwest::Request> {
         let endpoint = request.endpoint();
         let endpoint = endpoint.trim_matches('/');
         let url = format!("{}/{}", self.base_url, endpoint);
@@ -94,9 +96,9 @@ impl<'a> Client<'a> {
         req.build().map_err(From::from)
     }
 
-    fn send_raw<R>(&self, req: reqwest::Request) -> impl Future<Output = Result<R>> + 'a
+    fn send_raw<R>(&self, req: reqwest::Request) -> impl Future<Output = Result<R>>
     where
-        R: 'a + for<'de> serde::Deserialize<'de>,
+        R: for<'de> serde::Deserialize<'de>,
     {
         self.inner
             .execute(req)
@@ -120,10 +122,10 @@ impl<'a> Client<'a> {
     }
 
     /// Send multiple `Request`s, returing a stream of results
-    pub fn send_all<I, R>(
+    pub fn send_all<'a, I, R>(
         &'a self,
         requests: I,
-    ) -> impl Stream<Item = Result<R::Response>> + 'a + Unpin
+    ) -> impl Stream<Item = Result<R::Response>> + Unpin + 'a
     where
         I: Iterator<Item = &'a R> + 'a,
         R: Request + 'a,
@@ -136,10 +138,10 @@ impl<'a> Client<'a> {
     }
 
     /// Send a paginated request, returning a stream of results
-    pub fn send_paginated<R: PaginatedRequest + 'a>(
+    pub fn send_paginated<'a, R: PaginatedRequest>(
         &'a self,
         request: &'a R,
-    ) -> impl Stream<Item = Result<R::Response>> + 'a + Unpin {
+    ) -> impl Stream<Item = Result<R::Response>> + Unpin + 'a {
         Box::pin(stream::try_unfold(
             (request.paginator(), PaginationState::Start(None)),
             move |(paginator, state)| async move {
