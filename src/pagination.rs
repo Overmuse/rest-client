@@ -44,6 +44,7 @@ impl<T> Default for PaginationState<T> {
 }
 
 /// A paginator that implements pagination through one or more query parameters.
+#[allow(clippy::type_complexity)]
 pub struct QueryPaginator<T> {
     f: Box<dyn Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>>,
     _phantom: std::marker::PhantomData<T>,
