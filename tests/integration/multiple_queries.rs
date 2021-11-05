@@ -1,17 +1,17 @@
 use crate::utils::{NameGreeting, QueryHello};
+use futures::StreamExt;
 use rest_client::Client;
-use wiremock::matchers::{method, path, query_param};
+use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request as MockRequest, ResponseTemplate};
 
 #[tokio::test]
-async fn query() {
+async fn query_multiple() {
     let server = MockServer::start().await;
     let uri = server.uri();
     let client = Client::new(&uri);
 
     Mock::given(method("GET"))
         .and(path("/hello"))
-        .and(query_param("name", "Sebastian"))
         .respond_with(|req: &MockRequest| {
             let name = req
                 .url
@@ -27,16 +27,27 @@ async fn query() {
         .mount(&server)
         .await;
 
-    let response = client
-        .send(&QueryHello {
+    let reqs = &[
+        QueryHello {
             name: "Sebastian".into(),
-        })
-        .await
-        .unwrap();
+        },
+        QueryHello {
+            name: "Jessica".into(),
+        },
+    ];
+
+    let mut response = client.send_all(reqs);
     assert_eq!(
-        response,
+        response.next().await.unwrap().unwrap(),
         NameGreeting {
             message: "Hello, Sebastian!".into(),
         }
     );
+    assert_eq!(
+        response.next().await.unwrap().unwrap(),
+        NameGreeting {
+            message: "Hello, Jessica!".into(),
+        }
+    );
+    assert!(response.next().await.is_none());
 }

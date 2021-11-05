@@ -1,7 +1,6 @@
 use futures::StreamExt;
-use rest_client::Client;
-use rest_client::{PaginatedRequest, Paginator, QueryPaginator, Request, RequestBody};
-use rest_client::{PaginationState, PaginationType};
+use rest_client::pagination::{PaginatedRequest, PaginationState, PaginationType, QueryPaginator};
+use rest_client::{Client, Request, RequestData};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use stream_flatten_iters::TryStreamExt;
@@ -50,21 +49,23 @@ struct PassengersWrapper {
 }
 
 impl Request for GetPassengers {
-    type Body = Self;
+    type Data = Self;
     type Response = PassengersWrapper;
 
     fn endpoint(&self) -> Cow<str> {
         "/v1/passenger".into()
     }
 
-    fn body(&self) -> RequestBody<&Self> {
-        RequestBody::Query(self)
+    fn data(&self) -> RequestData<&Self> {
+        RequestData::Query(self)
     }
 }
 
 impl PaginatedRequest for GetPassengers {
-    fn paginator(&self) -> Box<dyn Paginator<Self::Response>> {
-        Box::new(QueryPaginator::new(get_next_url))
+    type Paginator = QueryPaginator<Self::Response>;
+
+    fn paginator(&self) -> Self::Paginator {
+        QueryPaginator::new(get_next_url)
     }
 }
 
