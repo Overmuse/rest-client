@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::pagination::{PaginatedRequest, PaginationState, PaginationType};
+use crate::pagination::{PaginatedRequest, PaginationState, PaginationType, Paginator};
 use crate::request::{Request, RequestBuilderExt};
 use futures::prelude::*;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 
 #[derive(Clone)]
-enum Authentication {
+enum Authorization {
     Bearer(String),
     Basic(String, String),
     Query(Vec<(String, String)>),
@@ -18,12 +18,12 @@ enum Authentication {
 /// The main client used for making requests.
 ///
 /// `Client` stores an async Reqwest client as well as the associated
-/// base url for the REST server.
+/// base url and possible authorization details for the REST server.
 #[derive(Clone)]
 pub struct Client {
     inner: Arc<ReqwestClient>,
     base_url: String,
-    auth: Option<Authentication>,
+    auth: Option<Authorization>,
 }
 
 impl Client {
@@ -40,13 +40,13 @@ impl Client {
 
     /// Enable bearer authentication for the client
     pub fn bearer_auth<S: ToString>(mut self, token: S) -> Self {
-        self.auth = Some(Authentication::Bearer(token.to_string()));
+        self.auth = Some(Authorization::Bearer(token.to_string()));
         self
     }
 
     /// Enable basic authentication for the client
     pub fn basic_auth<S: ToString>(mut self, user: S, pass: S) -> Self {
-        self.auth = Some(Authentication::Basic(user.to_string(), pass.to_string()));
+        self.auth = Some(Authorization::Basic(user.to_string(), pass.to_string()));
         self
     }
 
@@ -56,7 +56,7 @@ impl Client {
             .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
-        self.auth = Some(Authentication::Query(pairs));
+        self.auth = Some(Authorization::Query(pairs));
         self
     }
 
@@ -71,7 +71,7 @@ impl Client {
                 HeaderValue::from_str(&v).expect("Failed to create HeaderValue"),
             );
         }
-        self.auth = Some(Authentication::Header(map));
+        self.auth = Some(Authorization::Header(map));
         self
     }
 
@@ -84,14 +84,14 @@ impl Client {
             .inner
             .request(R::METHOD, &url)
             .headers(request.headers())
-            .request_body(request.body());
+            .request_data(request.data());
 
         let req = match &self.auth {
             None => req,
-            Some(Authentication::Bearer(token)) => req.bearer_auth(token),
-            Some(Authentication::Basic(user, pass)) => req.basic_auth(user, Some(pass)),
-            Some(Authentication::Query(pairs)) => req.query(&pairs),
-            Some(Authentication::Header(pairs)) => req.headers(pairs.clone()),
+            Some(Authorization::Bearer(token)) => req.bearer_auth(token),
+            Some(Authorization::Basic(user, pass)) => req.basic_auth(user, Some(pass)),
+            Some(Authorization::Query(pairs)) => req.query(&pairs),
+            Some(Authorization::Header(pairs)) => req.headers(pairs.clone()),
         };
         req.build().map_err(From::from)
     }
@@ -127,11 +127,11 @@ impl Client {
         requests: I,
     ) -> impl Stream<Item = Result<R::Response>> + Unpin + 'a
     where
-        I: Iterator<Item = &'a R> + 'a,
+        I: IntoIterator<Item = &'a R> + 'a,
         R: Request + 'a,
     {
         Box::pin(
-            stream::iter(requests)
+            stream::iter(requests.into_iter())
                 .map(move |r| self.send(r).map_into())
                 .filter_map(|x| x),
         )

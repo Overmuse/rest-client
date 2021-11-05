@@ -1,10 +1,14 @@
 use crate::Request;
 
 #[derive(Debug, Clone)]
+/// The type of pagination used for the resource.
 pub enum PaginationType {
+    /// Pagination by one or multiple query parameters.
     Query(Vec<(String, String)>),
 }
 
+/// Base trait for paginators. Paginators can use the previous pagination state
+/// and the response from the previous request to create a new pagination state.
 pub trait Paginator<T> {
     fn next(
         &self,
@@ -13,47 +17,53 @@ pub trait Paginator<T> {
     ) -> PaginationState<PaginationType>;
 }
 
+/// Trait for any request that requires pagination.
 pub trait PaginatedRequest: Request {
-    fn paginator(&self) -> Box<dyn Paginator<Self::Response>>;
+    /// The paginator used for the request.
+    type Paginator: Paginator<Self::Response>;
+
+    /// Return the associated paginator.
+    fn paginator(&self) -> Self::Paginator;
 }
 
 #[derive(Clone, Debug)]
-pub enum PaginationState<T: Clone> {
+/// The current pagination state.
+pub enum PaginationState<T> {
+    /// State associated with the initial request.
     Start(Option<T>),
+    /// State associated with continuing pagination.
     Next(T),
+    /// State denoting that the last page has been reached.
     End,
 }
 
-impl<T: Clone> Default for PaginationState<T> {
+impl<T> Default for PaginationState<T> {
     fn default() -> PaginationState<T> {
         PaginationState::Start(None)
     }
 }
 
-pub struct QueryPaginator<F, T>
-where
-    F: Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>,
-{
-    f: F,
+/// A paginator that implements pagination through one or more query parameters.
+#[allow(clippy::type_complexity)]
+pub struct QueryPaginator<T> {
+    f: Box<dyn Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<F, T> QueryPaginator<F, T>
-where
-    F: Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>,
-{
-    pub fn new(f: F) -> Self {
+impl<T> QueryPaginator<T> {
+    pub fn new<
+        F: 'static + Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>,
+    >(
+        f: F,
+    ) -> Self {
         Self {
-            f,
+            f: Box::new(f),
             _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl<F, T> Paginator<T> for QueryPaginator<F, T>
-where
-    F: Fn(&PaginationState<PaginationType>, &T) -> Option<Vec<(String, String)>>,
-{
+impl<T> Paginator<T> for QueryPaginator<T> {
     fn next(
         &self,
         prev: &PaginationState<PaginationType>,

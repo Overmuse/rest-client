@@ -1,18 +1,7 @@
-use rest_client::{Client, EmptyResponse, Request};
-use std::borrow::Cow;
+use crate::utils::EmptyHello;
+use rest_client::Client;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
-
-struct EmptyHello;
-
-impl Request for EmptyHello {
-    type Body = ();
-    type Response = EmptyResponse;
-
-    fn endpoint(&self) -> Cow<str> {
-        "/hello".into()
-    }
-}
 
 #[tokio::test]
 async fn empty_response() {
