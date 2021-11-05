@@ -29,10 +29,10 @@ async fn query_multiple() {
 
     let reqs = &[
         QueryHello {
-            name: "Sebastian".into(),
+            name: "world".into(),
         },
         QueryHello {
-            name: "Jessica".into(),
+            name: "again".into(),
         },
     ];
 
@@ -40,13 +40,13 @@ async fn query_multiple() {
     assert_eq!(
         response.next().await.unwrap().unwrap(),
         NameGreeting {
-            message: "Hello, Sebastian!".into(),
+            message: "Hello, world!".into(),
         }
     );
     assert_eq!(
         response.next().await.unwrap().unwrap(),
         NameGreeting {
-            message: "Hello, Jessica!".into(),
+            message: "Hello, again!".into(),
         }
     );
     assert!(response.next().await.is_none());
